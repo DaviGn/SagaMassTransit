@@ -29,7 +29,7 @@ namespace Core.Api.Saga
             ConfigureCorrelationIds();
 
             Initially(
-              When(OnOrderSubmitted) // Evento de recepção da solicitação
+              When(OnOrderSubmitted) // Receive the request
               .Then(x => logger.LogInformation($"Order submitted"))
               .SendAsync(new Uri("queue:debit-account"), context => context.Init<DebitAccount>(new
               {
@@ -38,12 +38,12 @@ namespace Core.Api.Saga
                   context.Message.CustomerId,
                   context.Message.Quantity,
                   context.Message.Amount
-              })) // Chama o débito
-              .TransitionTo(PendingDebit) // Muda para o status para PendingDebit
+              })) // Calls debit
+              .TransitionTo(PendingDebit)
               );
 
-            During(PendingDebit, // Enquanto no estado PendingDebit, se...
-                When(OnDebited) // Sucesso no débito
+            During(PendingDebit, // While PendingDebit, if...
+                When(OnDebited) // Debit has been succeeded?
                   .Then(x => logger.LogInformation($"Order debited"))
                   .SendAsync(new Uri("queue:call-partner"), context => context.Init<CallPartner>(new
                   {
@@ -52,18 +52,18 @@ namespace Core.Api.Saga
                       context.Message.CustomerId,
                       context.Message.Quantity,
                       context.Message.Amount
-                  }))  // Chama o parceiro
-                  .TransitionTo(AwaitingPartner), // Muda para o status para AwaitingPartner
-                When(OnDebitFailed) // Falha do débito
+                  }))  // Calls the partner
+                  .TransitionTo(AwaitingPartner),
+                When(OnDebitFailed) // Debit has been failed?
                   .Then(x => logger.LogInformation($"Debit failed"))
-                  .TransitionTo(CompletedError) // Finaliza com erro
+                  .TransitionTo(CompletedError)
                 );
 
-            During(AwaitingPartner, // Enquanto no estado AwaitingPartner, se...
-                  When(OnConfirmed) // Sucesso com o parceiro
+            During(AwaitingPartner, // While AwaitingPartner, if...
+                  When(OnConfirmed) // Partner request has been succeeded?
                   .Then(x => logger.LogInformation($"Order completed"))
                   .Finalize(),
-                  When(OnPartnerFailed) // Erro com o parceiro
+                  When(OnPartnerFailed) // Partner has been failed?
                   .Then(x => logger.LogInformation($"Partner failed"))
                   .SendAsync(new Uri("queue:rollback"), context => context.Init<RollbackDebit>(new
                   {
@@ -72,20 +72,20 @@ namespace Core.Api.Saga
                       context.Message.CustomerId,
                       context.Message.Quantity,
                       context.Message.Amount
-                  })) // Faz rollback do débito
-                  .TransitionTo(RollingBack) // Muda para o status para RollingBack
+                  })) // Calls the rollback
+                  .TransitionTo(RollingBack)
                 );
 
-            During(RollingBack, // Enquanto no estado RollingBack, se...
-                When(OnOrderRolledBack) // Sucesso com o rollback
+            During(RollingBack, // While RollingBack, if...
+                When(OnOrderRolledBack) // Rollback has been succeeded?
                   .Then(x => logger.LogInformation($"Rollback has been succeded"))
-                  .TransitionTo(CompletedError), // Finaliza com erro
+                  .TransitionTo(CompletedError),
                 When(OnOrderRolledFailed)
                   .Then(x => logger.LogInformation($"Rollback failed"))
                   .TransitionTo(RollbackFailed)
                 );
 
-            During(RollbackFailed, // Enquanto no estado RollbackFailed, se...
+            During(RollbackFailed, // While RollbackFailed, if...
                 When(OnPartnerFailed)
                    .Then(x => logger.LogInformation($"Partner failed"))
                    .SendAsync(new Uri("queue:partner-failed"), context => context.Init<PartnerFailedEvent>(new
@@ -95,7 +95,7 @@ namespace Core.Api.Saga
                        context.Message.CustomerId,
                        context.Message.Quantity,
                        context.Message.Amount
-                   })) // Faz rollback do débito
+                   })) // Calls the rollback
                   .TransitionTo(RollingBack)
                 );
         }
