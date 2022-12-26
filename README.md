@@ -1,6 +1,6 @@
 # About
 
-This is an example project of Saga using Mass transit. In this scenario, an order request is submitted to the Saga orchestrator. The orchestrator publishes message and the consumers will process the request, calling an (fake) api to debit account and an external (fake) api to confirm the order. In the end the Saga is finalized.
+This is an example project of transactional Saga using Mass transit. In this scenario, an order request is submitted to the Saga orchestrator. The orchestrator publishes message and the consumers will process the request, calling an (fake) api to debit account and an external (fake) api to confirm the order. In the end the Saga is finalized.
 
 ![](./imgs/architecture.png)
 
